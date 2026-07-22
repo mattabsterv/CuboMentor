@@ -1,38 +1,38 @@
-\# CuboMentor
+\# CuboMentor 🎲
 
 
 
-Simulador 3D interactivo del Cubo de Rubik, con modos 2x2 y 3x3,
+Simulador 3D interactivo del Cubo de Rubik, con modos 2×2 y 3×3, 
 
-cronometro de competicion, historial de movimientos y un modo de
+cronómetro de competición, historial de movimientos y un modo de 
 
 aprendizaje con algoritmos paso a paso (OLL/PLL).
 
 
 
-\## Demo en vivo
+\## 🌐 Demo en vivo
 
-https://mattabsterv.github.io/CuboMentor/
+👉 \[https://mattabsterv.github.io/CuboMentor/](https://mattabsterv.github.io/CuboMentor/)
 
 
 
-\## Caracteristicas
+\## ✨ Características
 
-\- Cubo 3D interactivo (Three.js) con controles tactiles y de mouse
+\- Cubo 3D interactivo (Three.js) con controles táctiles y de mouse
 
-\- Modo 2x2 (Pocket) y 3x3 (Clasico)
+\- Modo 2×2 (Pocket) y 3×3 (Clásico)
 
-\- Cronometro de competicion y contador de movimientos
+\- Cronómetro de competición y contador de movimientos
 
 \- Modo Aprendizaje con algoritmos: T-Perm, Sune, J-Perm, Sexy Move
 
-\- Sonido sintetico, modo Turbo, deshacer movimientos
+\- Sonido sintético, modo Turbo, deshacer movimientos
 
-\- Diseno responsive, listo para instalarse como app movil
+\- Diseño responsive, listo para instalarse como app móvil
 
 
 
-\## Tecnologias
+\## 🛠️ Tecnologías
 
 \- HTML5 / CSS3 (Tailwind CSS)
 
@@ -42,7 +42,7 @@ https://mattabsterv.github.io/CuboMentor/
 
 
 
-\## Version APK
+\## 📱 Versión APK
 
-Tambien disponible como aplicacion Android empaquetada con Capacitor.
+También disponible como aplicación Android empaquetada con Capacitor.
 
