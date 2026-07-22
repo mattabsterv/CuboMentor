@@ -1,4 +1,4 @@
-\# CuboMentor 🎲
+\ CuboMentor 🎲
 
 
 
@@ -10,13 +10,13 @@ aprendizaje con algoritmos paso a paso (OLL/PLL).
 
 
 
-\## 🌐 Demo en vivo
+\ 🌐 Demo en vivo
 
 👉 \[https://mattabsterv.github.io/CuboMentor/](https://mattabsterv.github.io/CuboMentor/)
 
 
 
-\## ✨ Características
+\ ✨ Características
 
 \- Cubo 3D interactivo (Three.js) con controles táctiles y de mouse
 
@@ -32,7 +32,7 @@ aprendizaje con algoritmos paso a paso (OLL/PLL).
 
 
 
-\## 🛠️ Tecnologías
+\ 🛠️ Tecnologías
 
 \- HTML5 / CSS3 (Tailwind CSS)
 
