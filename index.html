@@ -1,0 +1,2169 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>CUBOMENTOR — Simulador 3D del Cubo de Rubik</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            cyber: {
+              bg: '#0b0f19',
+              mid: '#1e293b',
+              neon: '#00f0ff',
+              pink: '#ff0055',
+              lime: '#00ff66',
+              amber: '#ffee00',
+              orange: '#ff9000'
+            }
+          },
+          fontFamily: {
+            display: ['"Orbitron"', 'sans-serif'],
+            body: ['"Rajdhani"', 'sans-serif']
+          },
+          boxShadow: {
+            glow: '0 0 20px rgba(0, 240, 255, 0.45), 0 0 40px rgba(0, 240, 255, 0.15)',
+            'glow-pink': '0 0 20px rgba(255, 0, 85, 0.5)'
+          },
+          keyframes: {
+            'panel-in': {
+              '0%': { transform: 'translateX(100%)', opacity: '0' },
+              '100%': { transform: 'translateX(0)', opacity: '1' }
+            },
+            'fade-up': {
+              '0%': { opacity: '0', transform: 'translateY(16px)' },
+              '100%': { opacity: '1', transform: 'translateY(0)' }
+            },
+            pulse-glow: {
+              '0%, 100%': { boxShadow: '0 0 16px rgba(0, 240, 255, 0.35)' },
+              '50%': { boxShadow: '0 0 28px rgba(0, 240, 255, 0.7)' }
+            }
+          },
+          animation: {
+            'panel-in': 'panel-in 0.35s ease-out forwards',
+            'fade-up': 'fade-up 0.45s ease-out forwards',
+            'pulse-glow': 'pulse-glow 2.2s ease-in-out infinite'
+          }
+        }
+      }
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { -webkit-tap-highlight-color: transparent; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      font-family: 'Rajdhani', sans-serif;
+      background: #0b0f19;
+      color: #e2e8f0;
+    }
+    .screen {
+      position: absolute;
+      inset: 0;
+      display: none;
+      opacity: 0;
+      transition: opacity 0.35s ease;
+      pointer-events: none;
+    }
+    .screen.active {
+      display: flex;
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .bg-cyber {
+      background:
+        radial-gradient(ellipse 80% 60% at 50% 40%, #1e293b 0%, #0b0f19 70%),
+        radial-gradient(circle at 20% 80%, rgba(0, 240, 255, 0.06) 0%, transparent 40%),
+        radial-gradient(circle at 80% 20%, rgba(255, 0, 85, 0.05) 0%, transparent 35%);
+    }
+    .glass {
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(18px) saturate(1.4);
+      -webkit-backdrop-filter: blur(18px) saturate(1.4);
+      border: 1px solid rgba(148, 163, 184, 0.18);
+    }
+    .glass-strong {
+      background: rgba(11, 15, 25, 0.78);
+      backdrop-filter: blur(22px) saturate(1.5);
+      -webkit-backdrop-filter: blur(22px) saturate(1.5);
+      border: 1px solid rgba(0, 240, 255, 0.22);
+    }
+    .input-cyber {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid rgba(148, 163, 184, 0.25);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .input-cyber:focus {
+      outline: none;
+      border-color: #00f0ff;
+      box-shadow: 0 0 0 3px rgba(0, 240, 255, 0.15);
+    }
+    .card-mode {
+      transition: transform 0.3s ease, border-color 0.3s, box-shadow 0.3s;
+    }
+    .card-mode:hover {
+      transform: translateY(-6px) scale(1.02);
+      border-color: rgba(0, 240, 255, 0.55);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 30px rgba(0, 240, 255, 0.2);
+    }
+    .move-btn {
+      font-family: 'Orbitron', sans-serif;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      border-radius: 0.5rem;
+      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      color: #f1f5f9;
+      transition: background 0.15s, border-color 0.15s, transform 0.1s, box-shadow 0.15s;
+      touch-action: manipulation;
+      user-select: none;
+      min-width: 2.4rem;
+      height: 2.4rem;
+      font-size: 0.7rem;
+    }
+    .move-btn:hover {
+      background: rgba(0, 240, 255, 0.18);
+      border-color: #00f0ff;
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.35);
+    }
+    .move-btn:active {
+      transform: scale(0.92);
+      background: rgba(0, 240, 255, 0.35);
+    }
+    .move-btn:disabled {
+      opacity: 0.4;
+      pointer-events: none;
+    }
+    #canvas-container {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+    }
+    #canvas-container canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+      touch-action: none;
+    }
+    .hud-layer { z-index: 10; pointer-events: none; }
+    .hud-layer > * { pointer-events: auto; }
+    .panel-lateral {
+      transform: translateX(100%);
+      transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .panel-lateral.abierto {
+      transform: translateX(0);
+    }
+    .select-cyber {
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      color: #e2e8f0;
+      border-radius: 0.5rem;
+      padding: 0.5rem 0.75rem;
+      width: 100%;
+      font-family: 'Rajdhani', sans-serif;
+      font-size: 1rem;
+    }
+    .select-cyber:focus {
+      outline: none;
+      border-color: #00f0ff;
+    }
+    .move-btn.preview {
+      border-color: #00f0ff;
+      background: rgba(0, 240, 255, 0.28);
+      box-shadow: 0 0 16px rgba(0, 240, 255, 0.5);
+    }
+    .historial-chip {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 0.6rem;
+      padding: 0.12rem 0.35rem;
+      border-radius: 0.3rem;
+      background: rgba(0, 240, 255, 0.12);
+      border: 1px solid rgba(0, 240, 255, 0.25);
+      color: #67e8f9;
+      flex-shrink: 0;
+    }
+    #toast-victoria {
+      opacity: 0;
+      transform: translate(-50%, 12px) scale(0.96);
+      transition: opacity 0.4s ease, transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+      pointer-events: none;
+    }
+    #toast-victoria.visible {
+      opacity: 1;
+      transform: translate(-50%, 0) scale(1);
+      pointer-events: auto;
+    }
+    .toggle-on {
+      border-color: rgba(0, 255, 102, 0.55) !important;
+      color: #00ff66 !important;
+      box-shadow: 0 0 14px rgba(0, 255, 102, 0.25);
+    }
+
+    /* —— Layout móvil / HUD —— */
+    #hud-top {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: start;
+      gap: 0.5rem;
+      padding: max(0.5rem, env(safe-area-inset-top)) max(0.5rem, env(safe-area-inset-right)) 0.35rem max(0.5rem, env(safe-area-inset-left));
+    }
+    #hud-acciones {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 0.35rem;
+      max-width: min(58vw, 22rem);
+    }
+    #historial-wrap {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      top: auto;
+      bottom: calc(5.75rem + env(safe-area-inset-bottom, 0px));
+      width: min(92vw, 28rem);
+      pointer-events: none;
+      z-index: 10;
+    }
+    #gamepad-wrap {
+      padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+    }
+
+    @media (max-width: 640px) {
+      #hud-top {
+        grid-template-columns: 1fr;
+        justify-items: stretch;
+      }
+      #hud-top .btn-volver-wrap,
+      #hud-stats,
+      #hud-acciones {
+        max-width: none;
+        width: 100%;
+      }
+      #hud-acciones {
+        justify-content: center;
+      }
+      #hud-stats {
+        justify-self: center;
+        width: fit-content;
+      }
+      #historial-wrap {
+        bottom: calc(7.5rem + env(safe-area-inset-bottom, 0px));
+      }
+      .move-btn {
+        min-width: 2.55rem;
+        height: 2.55rem;
+        font-size: 0.72rem;
+      }
+      #indicador-paso {
+        top: auto !important;
+        bottom: calc(11.5rem + env(safe-area-inset-bottom, 0px));
+      }
+      #toast-victoria {
+        width: min(92vw, 22rem);
+        padding: 1.25rem 1rem !important;
+      }
+      #toast-victoria .font-display {
+        font-size: 1.5rem !important;
+      }
+      .panel-lateral {
+        max-width: 100%;
+      }
+    }
+
+    @media (min-width: 641px) {
+      #historial-wrap {
+        bottom: calc(6.5rem + env(safe-area-inset-bottom, 0px));
+      }
+    }
+
+    @supports (padding: max(0px)) {
+      #pantalla-login,
+      #pantalla-dashboard {
+        padding-left: max(1rem, env(safe-area-inset-left));
+        padding-right: max(1rem, env(safe-area-inset-right));
+      }
+    }
+
+    #pantalla-login,
+    #pantalla-dashboard {
+      background: radial-gradient(ellipse 70% 55% at 50% 35%, #162033 0%, #0b0f19 68%);
+    }
+    .auth-card {
+      width: 100%;
+      max-width: 24rem;
+      border-radius: 1.25rem;
+      padding: 2rem 1.75rem;
+      background: rgba(12, 18, 32, 0.88);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    }
+    @media (min-width: 640px) {
+      .auth-card { padding: 2.5rem 2.25rem; }
+    }
+    .mode-card {
+      text-align: left;
+      border-radius: 1.25rem;
+      padding: 1.75rem;
+      background: rgba(12, 18, 32, 0.88);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      transition: border-color 0.25s, transform 0.25s, background 0.25s;
+    }
+    .mode-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(0, 240, 255, 0.45);
+      background: rgba(16, 24, 42, 0.95);
+    }
+    .mode-card.mode-3x3:hover {
+      border-color: rgba(232, 121, 249, 0.5);
+    }
+  </style>
+</head>
+<body class="bg-cyber">
+
+  <!-- ========== PANTALLA 1: LOGIN ========== -->
+  <section id="pantalla-login" class="screen active flex-col items-center justify-center px-4">
+    <div class="auth-card animate-fade-up">
+      <div class="text-center mb-8">
+        <h1 class="font-display text-3xl sm:text-4xl font-extrabold tracking-[0.14em] text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-white to-fuchsia-400">
+          CUBOMENTOR
+        </h1>
+        <p class="mt-3 text-slate-400 text-base">Simulador 3D del Cubo de Rubik</p>
+      </div>
+      <form id="form-login" class="space-y-4" autocomplete="off">
+        <div>
+          <label for="input-usuario" class="block text-xs font-semibold tracking-wider uppercase text-slate-500 mb-1.5">Usuario</label>
+          <input id="input-usuario" type="text" class="input-cyber w-full rounded-lg px-4 py-3 text-base text-white" placeholder="Tu nombre" value="mentor" required />
+        </div>
+        <div>
+          <label for="input-clave" class="block text-xs font-semibold tracking-wider uppercase text-slate-500 mb-1.5">Contraseña</label>
+          <input id="input-clave" type="password" class="input-cyber w-full rounded-lg px-4 py-3 text-base text-white" placeholder="••••••••" value="cubo" required />
+        </div>
+        <button type="submit" class="w-full mt-2 py-3 rounded-lg font-display font-bold text-xs tracking-[0.18em] uppercase bg-cyan-400 text-slate-950 hover:bg-cyan-300 transition">
+          Entrar
+        </button>
+      </form>
+      <p class="mt-5 text-center text-xs text-slate-600">Cualquier usuario y clave son válidos</p>
+    </div>
+  </section>
+
+  <!-- ========== PANTALLA 2: DASHBOARD ========== -->
+  <section id="pantalla-dashboard" class="screen flex-col items-center justify-center px-4">
+    <div class="w-full max-w-2xl animate-fade-up">
+      <div class="text-center mb-8">
+        <h2 class="font-display text-2xl sm:text-3xl font-bold tracking-wide text-white">Elige el cubo</h2>
+        <p class="mt-2 text-slate-500 text-sm sm:text-base">2×2 para velocidad · 3×3 con modo aprendizaje</p>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <button id="btn-modo-2x2" type="button" class="mode-card group">
+          <div class="font-display text-4xl font-extrabold text-cyan-300">2×2</div>
+          <div class="mt-2 font-display text-lg font-bold text-white">Pocket</div>
+          <p class="mt-1.5 text-slate-500 text-sm leading-relaxed">Ocho esquinas. Rápido y directo.</p>
+        </button>
+        <button id="btn-modo-3x3" type="button" class="mode-card mode-3x3 group">
+          <div class="font-display text-4xl font-extrabold text-fuchsia-400">3×3</div>
+          <div class="mt-2 font-display text-lg font-bold text-white">Clásico</div>
+          <p class="mt-1.5 text-slate-500 text-sm leading-relaxed">Incluye algoritmos paso a paso.</p>
+        </button>
+      </div>
+      <button id="btn-cerrar-sesion" type="button" class="mt-8 mx-auto block text-slate-600 hover:text-slate-400 text-sm transition">
+        ← Cerrar sesión
+      </button>
+    </div>
+  </section>
+
+  <!-- ========== PANTALLA 3: SIMULADOR ========== -->
+  <section id="pantalla-simulador" class="screen flex-col">
+    <div id="canvas-container"></div>
+
+    <!-- HUD superior -->
+    <div id="hud-top" class="hud-layer absolute top-0 left-0 right-0 z-20">
+      <div class="btn-volver-wrap">
+        <button id="btn-volver" type="button" class="glass rounded-xl px-3 py-2 text-sm font-semibold tracking-wide text-slate-200 hover:border-cyan-400/50 hover:text-cyan-300 transition">
+          ← Dashboard
+        </button>
+      </div>
+      <div id="hud-stats" class="glass rounded-xl px-3 sm:px-4 py-2 flex items-center gap-3 sm:gap-4 justify-self-center">
+        <div class="text-center min-w-[3.2rem]">
+          <div class="text-[0.55rem] uppercase tracking-widest text-slate-500 font-semibold">Tiempo</div>
+          <div id="cronometro" class="font-display text-base sm:text-xl font-bold text-amber-300 tabular-nums">0.00</div>
+        </div>
+        <div class="w-px h-7 bg-slate-600/50"></div>
+        <div class="text-center min-w-[2.5rem]">
+          <div class="text-[0.55rem] uppercase tracking-widest text-slate-500 font-semibold">Moves</div>
+          <div id="contador-movimientos" class="font-display text-base sm:text-xl font-bold text-cyan-300 tabular-nums">0</div>
+        </div>
+        <div class="w-px h-7 bg-slate-600/50 hidden sm:block"></div>
+        <div class="text-center hidden sm:block">
+          <div class="text-[0.55rem] uppercase tracking-widest text-slate-500 font-semibold">Modo</div>
+          <div id="etiqueta-modo" class="font-display text-sm font-bold text-white">3×3</div>
+        </div>
+      </div>
+      <div id="hud-acciones">
+        <button id="btn-deshacer" type="button" class="glass rounded-xl px-2.5 py-2 text-sm font-semibold text-slate-200 hover:text-orange-300 transition" title="Deshacer (Z)">↶</button>
+        <button id="btn-turbo" type="button" class="glass rounded-xl px-2.5 py-2 text-xs font-semibold text-slate-300 hover:text-lime-300 transition" title="Velocidad Turbo">Turbo</button>
+        <button id="btn-eco" type="button" class="glass rounded-xl px-2.5 py-2 text-xs font-semibold text-cyan-300 toggle-on transition hidden sm:inline-flex" title="Eco Holográfico">Eco</button>
+        <button id="btn-sonido" type="button" class="glass rounded-xl px-2.5 py-2 text-xs font-semibold text-slate-300 hover:text-cyan-300 transition" title="Sonido">♪</button>
+        <button id="btn-mezclar" type="button" class="glass rounded-xl px-2.5 sm:px-3 py-2 text-sm font-semibold text-slate-200 hover:text-amber-300 transition">Mezclar</button>
+        <button id="btn-reset" type="button" class="glass rounded-xl px-2.5 sm:px-3 py-2 text-sm font-semibold text-slate-200 hover:text-emerald-300 transition">Reset</button>
+        <button id="btn-aprender" type="button" class="hidden glass rounded-xl px-2.5 sm:px-3 py-2 text-sm font-semibold text-fuchsia-300 hover:text-fuchsia-200 border-fuchsia-500/30 transition">Aprender</button>
+      </div>
+    </div>
+
+    <div id="historial-wrap" class="hud-layer">
+      <div id="historial-moves" class="flex gap-1 overflow-x-auto justify-center pb-1"></div>
+    </div>
+
+    <div id="indicador-paso" class="hud-layer absolute top-24 left-1/2 -translate-x-1/2 glass-strong rounded-xl px-4 sm:px-5 py-2.5 sm:py-3 text-center opacity-0 pointer-events-none transition-opacity duration-300 max-w-[90vw] z-10">
+      <div class="font-display text-xl sm:text-2xl font-bold text-cyan-300" id="paso-notacion">—</div>
+      <div class="text-sm text-slate-300 mt-0.5" id="paso-descripcion">Selecciona un algoritmo</div>
+    </div>
+
+    <div id="toast-victoria" class="hud-layer absolute top-1/2 left-1/2 z-30 glass-strong rounded-2xl px-6 sm:px-8 py-5 sm:py-6 text-center shadow-glow max-w-[90vw]">
+      <div class="font-display text-2xl sm:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-lime-300 via-cyan-300 to-fuchsia-400">¡RESUELTO!</div>
+      <p id="toast-stats" class="mt-2 text-slate-300 text-base sm:text-lg">—</p>
+      <p class="mt-1 text-xs text-slate-500 tracking-wide">CUBOMENTOR · victoria registrada</p>
+    </div>
+
+    <!-- Gamepad de notación -->
+    <div id="gamepad-wrap" class="hud-layer absolute bottom-0 left-0 right-0 px-2 sm:px-4 pt-2 flex justify-center z-20">
+      <div class="glass-strong rounded-2xl px-2.5 py-2.5 sm:px-4 sm:py-3.5 w-full max-w-lg sm:max-w-none sm:w-auto overflow-x-auto shadow-glow">
+        <div class="text-[0.55rem] sm:text-[0.6rem] uppercase tracking-[0.15em] text-slate-500 font-semibold text-center mb-1.5 sm:mb-2">Gamepad</div>
+        <div id="gamepad" class="flex flex-wrap justify-center gap-1.5 sm:gap-2"></div>
+      </div>
+    </div>
+
+    <!-- Panel lateral aprendizaje (solo 3x3) -->
+    <aside id="panel-aprendizaje" class="panel-lateral absolute top-0 right-0 h-full w-full max-w-sm glass-strong z-20 p-5 sm:p-6 flex flex-col shadow-glow">
+      <div class="flex items-center justify-between mb-6">
+        <h3 class="font-display text-lg font-bold tracking-wide text-white">Modo Aprendizaje</h3>
+        <button id="btn-cerrar-panel" type="button" class="w-9 h-9 rounded-lg glass flex items-center justify-center text-slate-300 hover:text-white transition" aria-label="Cerrar panel">✕</button>
+      </div>
+      <label class="text-xs uppercase tracking-widest text-slate-500 font-semibold mb-2">Algoritmo</label>
+      <select id="select-algoritmo" class="select-cyber mb-4">
+        <option value="">— Elige un algoritmo —</option>
+        <option value="tperm">T-Perm (PLL)</option>
+        <option value="sune">Sune (OLL)</option>
+        <option value="jperm">J-Perm (PLL)</option>
+        <option value="sexy">Sexy Move</option>
+      </select>
+      <div class="glass rounded-xl p-4 mb-4 flex-1 overflow-y-auto">
+        <p class="text-xs uppercase tracking-widest text-slate-500 font-semibold mb-2">Secuencia</p>
+        <p id="secuencia-texto" class="font-display text-sm text-cyan-200 leading-relaxed break-all">Selecciona un algoritmo para ver la secuencia.</p>
+        <p id="secuencia-progreso" class="mt-4 text-sm text-slate-400">Paso 0 / 0</p>
+      </div>
+      <div class="space-y-2">
+        <button id="btn-cargar-setup" type="button" class="w-full py-2.5 rounded-lg font-semibold text-sm tracking-wide bg-slate-700/80 hover:bg-slate-600 transition border border-slate-500/40">
+          Cargar Setup (estado previo)
+        </button>
+        <button id="btn-siguiente-paso" type="button" disabled class="w-full py-3 rounded-lg font-display font-bold text-sm tracking-wider uppercase bg-gradient-to-r from-fuchsia-600 to-pink-600 text-white shadow-glow-pink disabled:opacity-40 disabled:shadow-none hover:brightness-110 transition">
+          Siguiente Paso ➔
+        </button>
+      </div>
+    </aside>
+  </section>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
+
+    /* =========================================================
+       CONSTANTES Y PALETA
+       ========================================================= */
+    const COLORES = Object.freeze({
+      U: 0xf8f9fa, // Blanco
+      D: 0xffee00, // Amarillo Cyber
+      F: 0x00ff66, // Verde Esmeralda
+      B: 0x00f0ff, // Azul Eléctrico
+      R: 0xff0055, // Rojo Brillante
+      L: 0xff9000, // Naranja Neón
+      CORE: 0x1a1d24
+    });
+
+    const CARAS = Object.freeze(['R', 'L', 'U', 'D', 'F', 'B']);
+
+    const MOVE_DEFS = Object.freeze({
+      U:  { axis: 'y', dir: -1, layer: 'max', label: 'Sube la cara Superior' },
+      "U'": { axis: 'y', dir:  1, layer: 'max', label: 'Baja la cara Superior (antihorario)' },
+      D:  { axis: 'y', dir:  1, layer: 'min', label: 'Gira la cara Inferior' },
+      "D'": { axis: 'y', dir: -1, layer: 'min', label: 'Gira la cara Inferior (antihorario)' },
+      R:  { axis: 'x', dir: -1, layer: 'max', label: 'Sube la cara Derecha' },
+      "R'": { axis: 'x', dir:  1, layer: 'max', label: 'Baja la cara Derecha (antihorario)' },
+      L:  { axis: 'x', dir:  1, layer: 'min', label: 'Sube la cara Izquierda' },
+      "L'": { axis: 'x', dir: -1, layer: 'min', label: 'Baja la cara Izquierda (antihorario)' },
+      F:  { axis: 'z', dir: -1, layer: 'max', label: 'Gira la cara Frontal' },
+      "F'": { axis: 'z', dir:  1, layer: 'max', label: 'Gira la cara Frontal (antihorario)' },
+      B:  { axis: 'z', dir:  1, layer: 'min', label: 'Gira la cara Trasera' },
+      "B'": { axis: 'z', dir: -1, layer: 'min', label: 'Gira la cara Trasera (antihorario)' }
+    });
+
+    const GAMEPAD_ORDEN = ['U', "U'", 'D', "D'", 'R', "R'", 'L', "L'", 'F', "F'", 'B', "B'"];
+
+    /** Algoritmos famosos: setup = inverso del solve (deja el cubo en estado previo a resolver) */
+    const ALGORITMOS = Object.freeze({
+      tperm: {
+        nombre: 'T-Perm',
+        solve: ["R", "U", "R'", "U'", "R'", "F", "R2", "U'", "R'", "U'", "R", "U", "R'", "F'"],
+        descripcion: 'Permuta dos esquinas y dos aristas en forma de T.'
+      },
+      sune: {
+        nombre: 'Sune',
+        solve: ["R", "U", "R'", "U", "R", "U2", "R'"],
+        descripcion: 'Orienta las esquinas superiores (OLL clásico).'
+      },
+      jperm: {
+        nombre: 'J-Perm',
+        solve: ["R", "U", "R'", "F'", "R", "U", "R'", "U'", "R'", "F", "R2", "U'", "R'", "U'"],
+        descripcion: 'Permuta una esquina y una arista adyacentes.'
+      },
+      sexy: {
+        nombre: 'Sexy Move',
+        solve: ["R", "U", "R'", "U'"],
+        descripcion: 'Trigger fundamental. Úsalo para sentir el ritmo del cubo.'
+      }
+    });
+
+    /* =========================================================
+       AUDIO SINTÉTICO (Web Audio API)
+       ========================================================= */
+    class NexusAudio {
+      constructor() {
+        this.enabled = false;
+        this.ctx = null;
+      }
+
+      _ensure() {
+        if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+      }
+
+      toggle() {
+        this.enabled = !this.enabled;
+        if (this.enabled) this._ensure();
+        return this.enabled;
+      }
+
+      playMove(move) {
+        if (!this.enabled) return;
+        this._ensure();
+        const t = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const face = move.replace("'", '').replace('2', '');
+        const freqs = { U: 520, D: 360, R: 440, L: 400, F: 480, B: 320 };
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freqs[face] || 420, t);
+        osc.frequency.exponentialRampToValueAtTime((freqs[face] || 420) * 0.7, t + 0.08);
+        gain.gain.setValueAtTime(0.0001, t);
+        gain.gain.exponentialRampToValueAtTime(0.12, t + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.14);
+      }
+
+      playSolve() {
+        if (!this.enabled) return;
+        this._ensure();
+        const t = this.ctx.currentTime;
+        [523, 659, 784, 1046].forEach((f, i) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.value = f;
+          const start = t + i * 0.09;
+          gain.gain.setValueAtTime(0.0001, start);
+          gain.gain.exponentialRampToValueAtTime(0.1, start + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.35);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(start);
+          osc.stop(start + 0.4);
+        });
+      }
+    }
+
+    /* =========================================================
+       CRONÓMETRO DE COMPETICIÓN
+       ========================================================= */
+    class SolveTimer {
+      constructor(el) {
+        this.el = el;
+        this.running = false;
+        this.armed = false;
+        this.startMs = 0;
+        this.elapsed = 0;
+        this._raf = 0;
+      }
+
+      reset() {
+        this.running = false;
+        this.armed = false;
+        this.elapsed = 0;
+        cancelAnimationFrame(this._raf);
+        this.el.textContent = '0.00';
+        this.el.classList.remove('text-lime-300');
+        this.el.classList.add('text-amber-300');
+      }
+
+      arm() {
+        this.reset();
+        this.armed = true;
+        this.el.textContent = 'LISTO';
+      }
+
+      startIfArmed() {
+        if (!this.armed || this.running) return;
+        this.armed = false;
+        this.running = true;
+        this.startMs = performance.now();
+        const tick = () => {
+          if (!this.running) return;
+          this.elapsed = (performance.now() - this.startMs) / 1000;
+          this.el.textContent = this.elapsed.toFixed(2);
+          this._raf = requestAnimationFrame(tick);
+        };
+        tick();
+      }
+
+      stop() {
+        if (!this.running) return this.elapsed;
+        this.running = false;
+        cancelAnimationFrame(this._raf);
+        this.elapsed = (performance.now() - this.startMs) / 1000;
+        this.el.textContent = this.elapsed.toFixed(2);
+        this.el.classList.remove('text-amber-300');
+        this.el.classList.add('text-lime-300');
+        return this.elapsed;
+      }
+    }
+
+    /* =========================================================
+       UTILIDADES MATEMÁTICAS — ZERO DRIFT
+       ========================================================= */
+    const HALF_PI = Math.PI / 2;
+    const EPS = 1e-9;
+
+    function snapAngle(rad) {
+      return Math.round(rad / HALF_PI) * HALF_PI;
+    }
+
+    /** Redondeo half-away-from-zero (evita Math.round(-0.5) === 0). */
+    function roundHalfAway(n) {
+      return n < 0 ? -Math.round(-n) : Math.round(n);
+    }
+
+    /**
+     * Proyecta coordenada al índice de capa del cubo (0..size-1).
+     * Crítico en 2×2: las piezas viven en ±0.5·gap, no en múltiplos enteros de gap.
+     */
+    function snapCoord(v, gap, size) {
+      const half = (size - 1) / 2;
+      const idx = roundHalfAway(v / gap + half);
+      const clamped = Math.max(0, Math.min(size - 1, idx));
+      return (clamped - half) * gap;
+    }
+
+    function invertirMove(m) {
+      if (m.endsWith('2')) return m;
+      if (m.endsWith("'")) return m.slice(0, -1);
+      return m + "'";
+    }
+
+    function expandirMoves(seq) {
+      const out = [];
+      for (const m of seq) {
+        if (m.endsWith('2')) {
+          const base = m.slice(0, -1);
+          out.push(base, base);
+        } else {
+          out.push(m);
+        }
+      }
+      return out;
+    }
+
+    function invertirSecuencia(seq) {
+      return expandirMoves(seq).slice().reverse().map(invertirMove);
+    }
+
+    /* =========================================================
+       MOTOR DEL CUBO
+       ========================================================= */
+    class RubikEngine {
+      /**
+       * @param {THREE.Scene} scene
+       * @param {2|3} size
+       */
+      constructor(scene, size = 3) {
+        this.scene = scene;
+        this.size = size;
+        this.cubelets = [];
+        this.group = new THREE.Group();
+        this.pivot = new THREE.Group();
+        this.group.add(this.pivot);
+        this.scene.add(this.group);
+
+        this.gap = 1.08;
+        this.animating = false;
+        this.queue = [];
+        this.moveCount = 0;
+        this.history = [];
+        this.onMoveCount = null;
+        this.onStepInfo = null;
+        this.onMoveComplete = null;
+        this.animSpeed = 1;
+        this.ecoEnabled = true;
+        this._echoMeshes = [];
+
+        this._anim = null;
+        this._clock = new THREE.Clock(false);
+        this._geometries = [];
+        this._highlight = null;
+
+        this._matCore = new THREE.MeshStandardMaterial({
+          color: COLORES.CORE,
+          roughness: 0.72,
+          metalness: 0.12,
+          flatShading: false
+        });
+        this._matStickers = {};
+        for (const face of CARAS) {
+          const hex = COLORES[face];
+          this._matStickers[face] = new THREE.MeshStandardMaterial({
+            color: hex,
+            roughness: 0.28,
+            metalness: 0.05,
+            emissive: hex,
+            emissiveIntensity: 0.28,
+            flatShading: false
+          });
+        }
+
+        this._matHighlight = new THREE.MeshBasicMaterial({
+          color: 0x00f0ff,
+          transparent: true,
+          opacity: 0.18,
+          depthWrite: false,
+          side: THREE.DoubleSide
+        });
+        this._matEcho = new THREE.MeshBasicMaterial({
+          color: 0x00f0ff,
+          transparent: true,
+          opacity: 0.2,
+          depthWrite: false,
+          wireframe: true
+        });
+
+        this._build();
+      }
+
+      setSize(size) {
+        this.destroy();
+        this.size = size;
+        this.moveCount = 0;
+        this.queue = [];
+        this.animating = false;
+        this._anim = null;
+        this._build();
+        this._emitCount();
+      }
+
+      destroy() {
+        this._clearQueue();
+        this._clearEcho();
+        this.hideLayerPreview();
+        for (const c of this.cubelets) {
+          this.group.remove(c);
+        }
+        this.cubelets = [];
+        this.history = [];
+        for (const g of this._geometries) g.dispose();
+        this._geometries = [];
+        if (this.pivot.parent !== this.group) {
+          this.group.attach(this.pivot);
+        }
+        while (this.pivot.children.length) {
+          this.group.attach(this.pivot.children[0]);
+        }
+        this.pivot.rotation.set(0, 0, 0);
+      }
+
+      dispose() {
+        this.destroy();
+        if (this._highlight) {
+          this.group.remove(this._highlight);
+          this._highlight.geometry.dispose();
+        }
+        this.scene.remove(this.group);
+        this._matCore.dispose();
+        this._matHighlight.dispose();
+        this._matEcho.dispose();
+        Object.values(this._matStickers).forEach((m) => m.dispose());
+      }
+
+      _halfExtent() {
+        return ((this.size - 1) / 2) * this.gap;
+      }
+
+      _trackGeo(geo) {
+        this._geometries.push(geo);
+        return geo;
+      }
+
+      _buildHighlight() {
+        if (this._highlight) {
+          this.group.remove(this._highlight);
+          this._highlight.geometry.dispose();
+        }
+        const extent = this._halfExtent() + 0.55;
+        const geo = new THREE.PlaneGeometry(extent * 2, extent * 2);
+        this._highlight = new THREE.Mesh(geo, this._matHighlight);
+        this._highlight.visible = false;
+        this._highlight.renderOrder = 2;
+        this.group.add(this._highlight);
+      }
+
+      /** Preview holográfico de la capa al pasar el cursor. */
+      showLayerPreview(move) {
+        const def = MOVE_DEFS[move];
+        if (!def || !this._highlight) return;
+        const target = this._layerCoord(def.layer);
+        this._highlight.visible = true;
+        this._highlight.position.set(0, 0, 0);
+        this._highlight.rotation.set(0, 0, 0);
+        if (def.axis === 'x') {
+          this._highlight.rotation.y = HALF_PI;
+          this._highlight.position.x = target;
+        } else if (def.axis === 'y') {
+          this._highlight.rotation.x = -HALF_PI;
+          this._highlight.position.y = target;
+        } else {
+          this._highlight.position.z = target;
+        }
+        this._matHighlight.opacity = 0.22;
+      }
+
+      hideLayerPreview() {
+        if (this._highlight) this._highlight.visible = false;
+      }
+
+      /** Cubo stickerless: cuerpo oscuro + placas de color. */
+      _build() {
+        const half = (this.size - 1) / 2;
+        const body = 0.96;
+        const sticker = 0.82;
+        const stickerT = 0.045;
+        const bodyGeo = this._trackGeo(new THREE.BoxGeometry(body, body, body));
+
+        const faceMeta = [
+          { key: 'R', axis: 'x', sign: 1 },
+          { key: 'L', axis: 'x', sign: -1 },
+          { key: 'U', axis: 'y', sign: 1 },
+          { key: 'D', axis: 'y', sign: -1 },
+          { key: 'F', axis: 'z', sign: 1 },
+          { key: 'B', axis: 'z', sign: -1 }
+        ];
+
+        const stickerGeos = {
+          x: this._trackGeo(new THREE.BoxGeometry(stickerT, sticker, sticker)),
+          y: this._trackGeo(new THREE.BoxGeometry(sticker, stickerT, sticker)),
+          z: this._trackGeo(new THREE.BoxGeometry(sticker, sticker, stickerT))
+        };
+
+        for (let x = 0; x < this.size; x++) {
+          for (let y = 0; y < this.size; y++) {
+            for (let z = 0; z < this.size; z++) {
+              const isInner =
+                this.size === 3 &&
+                x > 0 && x < this.size - 1 &&
+                y > 0 && y < this.size - 1 &&
+                z > 0 && z < this.size - 1;
+              if (isInner) continue;
+
+              const cubelet = new THREE.Group();
+              const gx = (x - half) * this.gap;
+              const gy = (y - half) * this.gap;
+              const gz = (z - half) * this.gap;
+              cubelet.position.set(gx, gy, gz);
+              cubelet.userData.grid = { x: gx, y: gy, z: gz };
+              cubelet.userData.home = { x: gx, y: gy, z: gz };
+
+              const core = new THREE.Mesh(bodyGeo, this._matCore);
+              core.castShadow = true;
+              core.receiveShadow = true;
+              core.userData.isCore = true;
+              cubelet.add(core);
+
+              for (const f of faceMeta) {
+                let exposed = false;
+                if (f.key === 'R' && x === this.size - 1) exposed = true;
+                if (f.key === 'L' && x === 0) exposed = true;
+                if (f.key === 'U' && y === this.size - 1) exposed = true;
+                if (f.key === 'D' && y === 0) exposed = true;
+                if (f.key === 'F' && z === this.size - 1) exposed = true;
+                if (f.key === 'B' && z === 0) exposed = true;
+                if (!exposed) continue;
+
+                const plate = new THREE.Mesh(stickerGeos[f.axis], this._matStickers[f.key]);
+                const offset = body / 2 + stickerT / 2 - 0.008;
+                plate.position[f.axis] = f.sign * offset;
+                plate.castShadow = true;
+                plate.receiveShadow = true;
+                plate.userData.stickerFace = f.key;
+                plate.userData.normalAxis = f.axis;
+                plate.userData.normalSign = f.sign;
+                cubelet.add(plate);
+              }
+
+              this.group.add(cubelet);
+              this.cubelets.push(cubelet);
+            }
+          }
+        }
+        this._buildHighlight();
+      }
+
+      /**
+       * Snap de posiciones y orientación a la grilla de 90° — Zero Drift.
+       * Reconstruye Euler desde el quaternion, redondea a k·π/2 y reaplica
+       * el quaternion. Las posiciones se proyectan al grid espacial.
+       */
+      snapToValidGrid() {
+        const e = new THREE.Euler();
+        const m = new THREE.Matrix4();
+        const q = new THREE.Quaternion();
+
+        for (const c of this.cubelets) {
+          c.position.x = snapCoord(c.position.x, this.gap, this.size);
+          c.position.y = snapCoord(c.position.y, this.gap, this.size);
+          c.position.z = snapCoord(c.position.z, this.gap, this.size);
+
+          // 1) Euler desde quaternion → ángulos exactos de 90°
+          e.setFromQuaternion(c.quaternion, 'XYZ');
+          e.x = snapAngle(e.x);
+          e.y = snapAngle(e.y);
+          e.z = snapAngle(e.z);
+          q.setFromEuler(e);
+
+          // 2) Ortonormalizar ejes de la matriz de rotación a {-1,0,1}
+          //    (corrige cualquier micro-deriva residual del orden Euler)
+          m.makeRotationFromQuaternion(q);
+          const me = m.elements;
+          for (let i = 0; i < 16; i++) {
+            if (i % 4 === 3 || i >= 12) continue;
+            const v = me[i];
+            me[i] = Math.abs(v) < 0.5 ? 0 : Math.sign(v);
+          }
+          // Re-ortonormalizar columnas por seguridad
+          const cx = new THREE.Vector3(me[0], me[1], me[2]).normalize();
+          const cy = new THREE.Vector3(me[4], me[5], me[6]).normalize();
+          const cz = new THREE.Vector3().crossVectors(cx, cy).normalize();
+          cy.crossVectors(cz, cx).normalize();
+          m.makeBasis(cx, cy, cz);
+          q.setFromRotationMatrix(m);
+
+          c.quaternion.copy(q);
+          c.rotation.setFromQuaternion(q, 'XYZ');
+          c.rotation.x = snapAngle(c.rotation.x);
+          c.rotation.y = snapAngle(c.rotation.y);
+          c.rotation.z = snapAngle(c.rotation.z);
+
+          c.userData.grid = {
+            x: c.position.x,
+            y: c.position.y,
+            z: c.position.z
+          };
+        }
+      }
+
+      _layerCoord(layer) {
+        const half = this._halfExtent();
+        return layer === 'max' ? half : -half;
+      }
+
+      _selectLayer(axis, layer) {
+        const target = this._layerCoord(layer);
+        // Tolerancia amplia: tras snap 2×2 las piezas quedan en ±half*gap
+        const tol = this.gap * 0.45;
+        const selected = this.cubelets.filter((c) => Math.abs(c.position[axis] - target) < tol);
+        // Fallback: si por deriva no hay match exacto, elegir por signo / extremo
+        if (selected.length === 0) {
+          const sorted = this.cubelets.slice().sort((a, b) => a.position[axis] - b.position[axis]);
+          const need = this.size === 2 ? 4 : this.size * this.size;
+          return layer === 'max' ? sorted.slice(-need) : sorted.slice(0, need);
+        }
+        return selected;
+      }
+
+      enqueue(move, opts = {}) {
+        const base = move.replace('2', '');
+        if (!MOVE_DEFS[base] && !MOVE_DEFS[move]) {
+          console.warn('Movimiento desconocido:', move);
+          return;
+        }
+        if (move.endsWith('2')) {
+          const m = move.slice(0, -1);
+          this.queue.push({ move: m, silent: opts.silent, info: opts.info, record: opts.record !== false && !opts.silent });
+          this.queue.push({ move: m, silent: opts.silent, info: null, record: opts.record !== false && !opts.silent });
+        } else {
+          this.queue.push({
+            move,
+            silent: !!opts.silent,
+            info: opts.info || null,
+            record: opts.record !== false && !opts.silent
+          });
+        }
+        this._drain();
+      }
+
+      enqueueMany(moves, opts = {}) {
+        for (const m of moves) this.enqueue(m, opts);
+      }
+
+      undo() {
+        if (this.animating || this.queue.length > 0 || this.history.length === 0) return false;
+        const last = this.history.pop();
+        this.enqueue(invertirMove(last), { silent: true, record: false });
+        this.moveCount = Math.max(0, this.moveCount - 1);
+        this._emitCount();
+        if (this.onHistoryChange) this.onHistoryChange(this.history.slice());
+        return true;
+      }
+
+      _clearQueue() {
+        this.queue = [];
+        if (this._anim) {
+          this._finishAnim(true);
+        }
+      }
+
+      _clearEcho() {
+        let sharedGeo = null;
+        for (const m of this._echoMeshes) {
+          this.group.remove(m);
+          sharedGeo = m.geometry;
+          if (m.material && m.material !== this._matEcho) m.material.dispose();
+        }
+        if (sharedGeo) sharedGeo.dispose();
+        this._echoMeshes = [];
+      }
+
+      _spawnEcho(pieces, axis, angle) {
+        if (!this.ecoEnabled || !pieces.length) return;
+        this._clearEcho();
+        const box = new THREE.Box3();
+        for (const p of pieces) {
+          box.expandByObject(p);
+        }
+        if (box.isEmpty()) return;
+        const size = new THREE.Vector3();
+        const center = new THREE.Vector3();
+        box.getSize(size);
+        box.getCenter(center);
+        const geo = new THREE.BoxGeometry(
+          Math.max(size.x, 0.3) * 1.05,
+          Math.max(size.y, 0.3) * 1.05,
+          Math.max(size.z, 0.3) * 1.05
+        );
+        for (let i = 1; i <= 3; i++) {
+          const mesh = new THREE.Mesh(geo, this._matEcho.clone());
+          mesh.position.copy(center);
+          mesh.userData.echoT = i / 4;
+          mesh.userData.axis = axis;
+          mesh.userData.angle = angle;
+          mesh.userData.origin = center.clone();
+          mesh.material.opacity = 0.28 - i * 0.06;
+          this.group.add(mesh);
+          this._echoMeshes.push(mesh);
+        }
+      }
+
+      _updateEcho(progress, axis, angle) {
+        for (const mesh of this._echoMeshes) {
+          const t = Math.max(0, progress - mesh.userData.echoT);
+          const a = angle * t;
+          mesh.rotation.set(0, 0, 0);
+          mesh.rotation[axis] = a;
+          mesh.material.opacity = Math.max(0, 0.25 * (1 - progress));
+        }
+      }
+
+      _drain() {
+        if (this.animating || this.queue.length === 0) return;
+        const item = this.queue.shift();
+        this._startAnim(item);
+      }
+
+      _startAnim(item) {
+        const def = MOVE_DEFS[item.move];
+        if (!def) {
+          this._drain();
+          return;
+        }
+
+        const pieces = this._selectLayer(def.axis, def.layer);
+        if (pieces.length === 0) {
+          console.warn('Capa vacía para', item.move);
+          this._drain();
+          return;
+        }
+
+        this.animating = true;
+
+        this.pivot.rotation.set(0, 0, 0);
+        this.pivot.updateMatrixWorld(true);
+
+        for (const p of pieces) {
+          this.pivot.attach(p);
+        }
+
+        const angle = def.dir * HALF_PI;
+        const duration = (this.animSpeed > 1 ? 0.1 : 0.24) / this.animSpeed;
+        this._clock.start();
+        this._clock.elapsedTime = 0;
+
+        this._spawnEcho(pieces, def.axis, angle);
+
+        this._anim = {
+          axis: def.axis,
+          angle,
+          duration,
+          pieces,
+          silent: item.silent,
+          info: item.info,
+          move: item.move,
+          record: item.record,
+          progress: 0
+        };
+
+        if (item.info && this.onStepInfo) {
+          this.onStepInfo(item.move, item.info);
+        }
+      }
+
+      update(time) {
+        if (this._highlight?.visible) {
+          this._matHighlight.opacity = 0.14 + Math.sin((time || 0) * 6) * 0.08;
+        }
+        if (!this._anim) return;
+        const dt = this._clock.getDelta();
+        this._anim.progress = Math.min(1, this._anim.progress + dt / this._anim.duration);
+
+        const t = this._anim.progress;
+        const eased = 1 - Math.pow(1 - t, 3);
+        const a = this._anim.angle * eased;
+
+        this.pivot.rotation.set(0, 0, 0);
+        this.pivot.rotation[this._anim.axis] = a;
+        this._updateEcho(t, this._anim.axis, this._anim.angle);
+
+        if (this._anim.progress >= 1) {
+          this._finishAnim(false);
+        }
+      }
+
+      _finishAnim(aborted) {
+        if (!this._anim) return;
+        const { pieces, silent, axis, angle, move, record } = this._anim;
+
+        if (!aborted) {
+          this.pivot.rotation.set(0, 0, 0);
+          this.pivot.rotation[axis] = angle;
+          this.pivot.updateMatrixWorld(true);
+        }
+
+        for (const p of pieces) {
+          this.group.attach(p);
+        }
+        this.pivot.rotation.set(0, 0, 0);
+        this._clearEcho();
+        this.snapToValidGrid();
+
+        if (!aborted && !silent) {
+          this.moveCount += 1;
+          this._emitCount();
+        }
+        if (!aborted && record) {
+          this.history.push(move);
+          if (this.history.length > 40) this.history.shift();
+          if (this.onHistoryChange) this.onHistoryChange(this.history.slice());
+        }
+
+        const finishedMove = move;
+        this._anim = null;
+        this.animating = false;
+
+        if (!aborted && this.onMoveComplete) {
+          this.onMoveComplete(finishedMove, silent);
+        }
+
+        this._drain();
+      }
+
+      _emitCount() {
+        if (this.onMoveCount) this.onMoveCount(this.moveCount);
+      }
+
+      /**
+       * Comprueba si cada cara del mundo tiene un solo color (cubo resuelto).
+       */
+      isSolved() {
+        const buckets = new Map();
+        const local = new THREE.Vector3();
+        const world = new THREE.Vector3();
+
+        for (const c of this.cubelets) {
+          c.updateMatrixWorld(true);
+          for (const child of c.children) {
+            const face = child.userData?.stickerFace;
+            if (!face) continue;
+            local.set(0, 0, 0);
+            local[child.userData.normalAxis] = child.userData.normalSign;
+            world.copy(local).transformDirection(c.matrixWorld);
+            const ax = Math.abs(world.x) >= Math.abs(world.y) && Math.abs(world.x) >= Math.abs(world.z)
+              ? (world.x > 0 ? '+x' : '-x')
+              : Math.abs(world.y) >= Math.abs(world.z)
+                ? (world.y > 0 ? '+y' : '-y')
+                : (world.z > 0 ? '+z' : '-z');
+            if (!buckets.has(ax)) buckets.set(ax, new Set());
+            buckets.get(ax).add(face);
+          }
+        }
+        if (buckets.size < 6) return false;
+        for (const set of buckets.values()) {
+          if (set.size !== 1) return false;
+        }
+        return true;
+      }
+
+      resetSolved() {
+        this._clearQueue();
+        this.destroy();
+        this._build();
+        this.moveCount = 0;
+        this.history = [];
+        this._emitCount();
+        if (this.onHistoryChange) this.onHistoryChange([]);
+      }
+
+      scramble(n = 25) {
+        this._clearQueue();
+        this.history = [];
+        if (this.onHistoryChange) this.onHistoryChange([]);
+        const keys = Object.keys(MOVE_DEFS);
+        let lastAxis = null;
+        const moves = [];
+        for (let i = 0; i < n; i++) {
+          let m;
+          do {
+            m = keys[Math.floor(Math.random() * keys.length)];
+          } while (MOVE_DEFS[m].axis === lastAxis);
+          lastAxis = MOVE_DEFS[m].axis;
+          moves.push(m);
+        }
+        this.enqueueMany(moves, { silent: true, record: false });
+        const after = () => {
+          if (!this.animating && this.queue.length === 0) {
+            this.snapToValidGrid();
+            this.moveCount = 0;
+            this._emitCount();
+            if (this.onScrambleDone) this.onScrambleDone();
+          } else {
+            requestAnimationFrame(after);
+          }
+        };
+        requestAnimationFrame(after);
+      }
+
+      applyInstant(moves) {
+        this._clearQueue();
+        for (const raw of expandirMoves(moves)) {
+          const def = MOVE_DEFS[raw];
+          if (!def) continue;
+          const pieces = this._selectLayer(def.axis, def.layer);
+          this.pivot.rotation.set(0, 0, 0);
+          for (const p of pieces) this.pivot.attach(p);
+          this.pivot.rotation[def.axis] = def.dir * HALF_PI;
+          this.pivot.updateMatrixWorld(true);
+          for (const p of pieces) this.group.attach(p);
+          this.pivot.rotation.set(0, 0, 0);
+          this.snapToValidGrid();
+        }
+        this.history = [];
+        if (this.onHistoryChange) this.onHistoryChange([]);
+      }
+    }
+
+    /* =========================================================
+       ARRASTRE DE CARAS (sin mover la cámara)
+       Capture phase: si tocas un cubelet, Trackball se desactiva.
+       Fondo vacío: la cámara sigue libre.
+       ========================================================= */
+    function dominantAxis(v) {
+      const ax = Math.abs(v.x);
+      const ay = Math.abs(v.y);
+      const az = Math.abs(v.z);
+      if (ax >= ay && ax >= az) return { axis: 'x', sign: Math.sign(v.x) || 1 };
+      if (ay >= az) return { axis: 'y', sign: Math.sign(v.y) || 1 };
+      return { axis: 'z', sign: Math.sign(v.z) || 1 };
+    }
+
+    function moveFromLayer(axis, layer, dir) {
+      for (const [name, def] of Object.entries(MOVE_DEFS)) {
+        if (def.axis === axis && def.layer === layer && def.dir === dir) return name;
+      }
+      return null;
+    }
+
+    class FaceDragController {
+      constructor(sceneManager) {
+        this.sm = sceneManager;
+        this.raycaster = new THREE.Raycaster();
+        this.pointer = new THREE.Vector2();
+        this.faceDragging = false;
+        this.committed = false;
+        this.startClient = { x: 0, y: 0 };
+        this.hitNormal = new THREE.Vector3();
+        this.cubelet = null;
+        this.previewMove = null;
+        this.threshold = 18;
+        this._plane = new THREE.Plane();
+        this._hitPoint = new THREE.Vector3();
+        this._dragPoint = new THREE.Vector3();
+        this._tmp = new THREE.Vector3();
+
+        this._onDown = this._onDown.bind(this);
+        this._onMove = this._onMove.bind(this);
+        this._onUp = this._onUp.bind(this);
+
+        const el = sceneManager.renderer.domElement;
+        el.addEventListener('pointerdown', this._onDown, { capture: true });
+        window.addEventListener('pointermove', this._onMove);
+        window.addEventListener('pointerup', this._onUp);
+        window.addEventListener('pointercancel', this._onUp);
+      }
+
+      _setPointer(e) {
+        const rect = this.sm.renderer.domElement.getBoundingClientRect();
+        this.pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        this.pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      }
+
+      _pickables() {
+        const list = [];
+        for (const c of this.sm.engine.cubelets) {
+          for (const ch of c.children) {
+            if (ch.isMesh) list.push(ch);
+          }
+        }
+        return list;
+      }
+
+      _findCubelet(obj) {
+        let o = obj;
+        while (o) {
+          if (this.sm.engine.cubelets.includes(o)) return o;
+          o = o.parent;
+        }
+        return null;
+      }
+
+      _resolveMove(dx, dy) {
+        if (Math.hypot(dx, dy) < this.threshold) return null;
+
+        const camRight = new THREE.Vector3().setFromMatrixColumn(this.sm.camera.matrixWorld, 0).normalize();
+        const camUp = new THREE.Vector3().setFromMatrixColumn(this.sm.camera.matrixWorld, 1).normalize();
+        const dragWorld = this._tmp
+          .copy(camRight)
+          .multiplyScalar(dx)
+          .addScaledVector(camUp, -dy);
+        if (dragWorld.lengthSq() < 1e-8) return null;
+        dragWorld.normalize();
+
+        const n = this.hitNormal.clone().normalize();
+        // Quitar componente paralela a la normal para obtener barrido tangencial
+        dragWorld.addScaledVector(n, -dragWorld.dot(n));
+        if (dragWorld.lengthSq() < 1e-8) return null;
+        dragWorld.normalize();
+
+        const rot = new THREE.Vector3().crossVectors(n, dragWorld);
+        const rotDom = dominantAxis(rot);
+        const layer = this.cubelet.position[rotDom.axis] >= 0 ? 'max' : 'min';
+        const dir = rotDom.sign > 0 ? 1 : -1;
+        return moveFromLayer(rotDom.axis, layer, dir);
+      }
+
+      _onDown(e) {
+        if (e.button !== undefined && e.button !== 0) return;
+        if (this.sm.engine.animating || this.sm.engine.queue.length > 0) return;
+
+        this._setPointer(e);
+        this.raycaster.setFromCamera(this.pointer, this.sm.camera);
+        const hits = this.raycaster.intersectObjects(this._pickables(), false);
+        if (!hits.length) {
+          // Fondo: cámara libre
+          this.faceDragging = false;
+          this.sm.controls.enabled = true;
+          return;
+        }
+
+        // Cara: bloquear cámara de inmediato (capture phase)
+        e.stopPropagation();
+        this.sm.controls.enabled = false;
+        this.faceDragging = true;
+        this.committed = false;
+        this.previewMove = null;
+        this.startClient = { x: e.clientX, y: e.clientY };
+
+        const hit = hits[0];
+        this.cubelet = this._findCubelet(hit.object);
+        this.hitNormal.copy(hit.face.normal).transformDirection(hit.object.matrixWorld).normalize();
+        // Snap de normal a eje del mundo
+        const nd = dominantAxis(this.hitNormal);
+        this.hitNormal.set(0, 0, 0);
+        this.hitNormal[nd.axis] = nd.sign;
+
+        this._hitPoint.copy(hit.point);
+        try {
+          this.sm.renderer.domElement.setPointerCapture(e.pointerId);
+        } catch (_) { /* noop */ }
+      }
+
+      _onMove(e) {
+        if (!this.faceDragging || !this.cubelet) return;
+        const dx = e.clientX - this.startClient.x;
+        const dy = e.clientY - this.startClient.y;
+        if (Math.hypot(dx, dy) < this.threshold) return;
+
+        this.committed = true;
+        const move = this._resolveMove(dx, dy);
+        if (move && move !== this.previewMove) {
+          this.previewMove = move;
+          this.sm.engine.showLayerPreview(move);
+        }
+      }
+
+      _onUp(e) {
+        if (!this.faceDragging) {
+          this.sm.controls.enabled = true;
+          return;
+        }
+
+        const dx = e.clientX - this.startClient.x;
+        const dy = e.clientY - this.startClient.y;
+        const move = this.committed ? this._resolveMove(dx, dy) : null;
+
+        this.sm.engine.hideLayerPreview();
+        this.faceDragging = false;
+        this.committed = false;
+        this.cubelet = null;
+        this.previewMove = null;
+        this.sm.controls.enabled = true;
+
+        try {
+          if (e.pointerId != null) this.sm.renderer.domElement.releasePointerCapture(e.pointerId);
+        } catch (_) { /* noop */ }
+
+        if (move && this.sm.onFaceMove) this.sm.onFaceMove(move);
+      }
+    }
+
+    /* =========================================================
+       RENDERER / ESCENA
+       ========================================================= */
+    class SceneManager {
+      constructor(container) {
+        this.container = container;
+        this.width = container.clientWidth || window.innerWidth;
+        this.height = container.clientHeight || window.innerHeight;
+        this.onFaceMove = null;
+
+        this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
+        this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        this.renderer.setSize(this.width, this.height);
+        this.renderer.setClearColor(0x0b0f19, 1);
+        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+        this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        this.renderer.toneMappingExposure = 1.45;
+        container.appendChild(this.renderer.domElement);
+
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0x0b0f19);
+        this.scene.fog = new THREE.FogExp2(0x0b0f19, 0.035);
+
+        this.camera = new THREE.PerspectiveCamera(42, this.width / this.height, 0.1, 100);
+        this.camera.position.set(4.2, 3.4, 5.2);
+
+        this.controls = new TrackballControls(this.camera, this.renderer.domElement);
+        this.controls.rotateSpeed = 3.2;
+        this.controls.zoomSpeed = 1.1;
+        this.controls.panSpeed = 0.6;
+        this.controls.noPan = true;
+        this.controls.staticMoving = false;
+        this.controls.dynamicDampingFactor = 0.12;
+        this.controls.minDistance = 3;
+        this.controls.maxDistance = 14;
+
+        this._setupLights();
+        this._setupFloor();
+        this._setupParticles();
+        this._setupDecor();
+
+        this.engine = new RubikEngine(this.scene, 3);
+        this.faceDrag = new FaceDragController(this);
+
+        this._running = false;
+        this._raf = 0;
+        this._clock = new THREE.Clock();
+        this._onResize = () => this.resize();
+        window.addEventListener('resize', this._onResize);
+        window.addEventListener('orientationchange', this._onResize);
+        if (window.visualViewport) {
+          this._onVV = () => this.resize();
+          window.visualViewport.addEventListener('resize', this._onVV);
+        }
+      }
+
+      _setupLights() {
+        this.hemi = new THREE.HemisphereLight(0xb8d4ff, 0x1a1020, 1.1);
+        this.scene.add(this.hemi);
+
+        this.ambient = new THREE.AmbientLight(0xffffff, 0.65);
+        this.scene.add(this.ambient);
+
+        this.keyLight = new THREE.DirectionalLight(0xffffff, 1.8);
+        this.keyLight.position.set(5, 9, 5);
+        this.keyLight.castShadow = true;
+        this.keyLight.shadow.mapSize.set(1024, 1024);
+        this.keyLight.shadow.camera.near = 1;
+        this.keyLight.shadow.camera.far = 24;
+        this.keyLight.shadow.camera.left = -6;
+        this.keyLight.shadow.camera.right = 6;
+        this.keyLight.shadow.camera.top = 6;
+        this.keyLight.shadow.camera.bottom = -6;
+        this.keyLight.shadow.bias = -0.0005;
+        this.scene.add(this.keyLight);
+
+        this.fill = new THREE.DirectionalLight(0x88e8ff, 0.85);
+        this.fill.position.set(-6, 4, -3);
+        this.scene.add(this.fill);
+
+        this.rim = new THREE.PointLight(0xff6688, 0.9, 24);
+        this.rim.position.set(-2.5, 2.5, 5);
+        this.scene.add(this.rim);
+
+        this.bounce = new THREE.PointLight(0xffee88, 0.55, 18);
+        this.bounce.position.set(3, -1.5, 2);
+        this.scene.add(this.bounce);
+      }
+
+      _setupFloor() {
+        const geo = new THREE.CircleGeometry(5.5, 64);
+        const mat = new THREE.MeshStandardMaterial({
+          color: 0x141a28,
+          roughness: 0.85,
+          metalness: 0.35,
+          emissive: 0x00f0ff,
+          emissiveIntensity: 0.04
+        });
+        this.floor = new THREE.Mesh(geo, mat);
+        this.floor.rotation.x = -HALF_PI;
+        this.floor.position.y = -2.15;
+        this.floor.receiveShadow = true;
+        this.scene.add(this.floor);
+
+        this.ring = new THREE.Mesh(
+          new THREE.RingGeometry(2.8, 3.05, 64),
+          new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.22, side: THREE.DoubleSide })
+        );
+        this.ring.rotation.x = -HALF_PI;
+        this.ring.position.y = -2.14;
+        this.scene.add(this.ring);
+
+        this.ringOuter = new THREE.Mesh(
+          new THREE.RingGeometry(3.3, 3.4, 64),
+          new THREE.MeshBasicMaterial({ color: 0xff0055, transparent: true, opacity: 0.12, side: THREE.DoubleSide })
+        );
+        this.ringOuter.rotation.x = -HALF_PI;
+        this.ringOuter.position.y = -2.13;
+        this.scene.add(this.ringOuter);
+      }
+
+      _setupDecor() {
+        // Anillo holográfico vertical (ambiente)
+        this.halo = new THREE.Mesh(
+          new THREE.TorusGeometry(3.6, 0.02, 8, 96),
+          new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.18 })
+        );
+        this.halo.rotation.x = Math.PI / 2.6;
+        this.halo.position.y = 0.2;
+        this.scene.add(this.halo);
+
+        this.halo2 = new THREE.Mesh(
+          new THREE.TorusGeometry(4.1, 0.015, 8, 96),
+          new THREE.MeshBasicMaterial({ color: 0xff0055, transparent: true, opacity: 0.1 })
+        );
+        this.halo2.rotation.x = Math.PI / 2.2;
+        this.halo2.rotation.z = 0.4;
+        this.halo2.position.y = -0.3;
+        this.scene.add(this.halo2);
+      }
+
+      /** Entornos distintos para Pocket (2×2) y Classic (3×3). */
+      applyTheme(size) {
+        if (size === 2) {
+          const bg = 0x07141f;
+          this.scene.background.setHex(bg);
+          this.scene.fog.color.setHex(bg);
+          this.scene.fog.density = 0.028;
+          this.renderer.setClearColor(bg, 1);
+          this.floor.material.color.setHex(0x0d2436);
+          this.floor.material.emissive.setHex(0x00f0ff);
+          this.floor.material.emissiveIntensity = 0.07;
+          this.ring.material.color.setHex(0x00f0ff);
+          this.ring.material.opacity = 0.3;
+          this.ringOuter.material.color.setHex(0xff9000);
+          this.ringOuter.material.opacity = 0.2;
+          this.halo.material.color.setHex(0x00f0ff);
+          this.halo2.material.color.setHex(0xff9000);
+          this.fill.color.setHex(0x66e0ff);
+          this.rim.color.setHex(0xffaa55);
+          this.hemi.color.setHex(0xa8e6ff);
+          this.hemi.groundColor.setHex(0x0a1520);
+        } else {
+          const bg = 0x110812;
+          this.scene.background.setHex(bg);
+          this.scene.fog.color.setHex(bg);
+          this.scene.fog.density = 0.032;
+          this.renderer.setClearColor(bg, 1);
+          this.floor.material.color.setHex(0x1a1020);
+          this.floor.material.emissive.setHex(0xff0055);
+          this.floor.material.emissiveIntensity = 0.06;
+          this.ring.material.color.setHex(0xff2a7a);
+          this.ring.material.opacity = 0.28;
+          this.ringOuter.material.color.setHex(0x00f0ff);
+          this.ringOuter.material.opacity = 0.16;
+          this.halo.material.color.setHex(0xff2a7a);
+          this.halo2.material.color.setHex(0x00f0ff);
+          this.fill.color.setHex(0xe088ff);
+          this.rim.color.setHex(0xff6699);
+          this.hemi.color.setHex(0xffd0ea);
+          this.hemi.groundColor.setHex(0x180818);
+        }
+      }
+
+      _setupParticles() {
+        const count = 120;
+        const positions = new Float32Array(count * 3);
+        const colors = new Float32Array(count * 3);
+        const palette = [
+          new THREE.Color(0x00f0ff),
+          new THREE.Color(0xff0055),
+          new THREE.Color(0x00ff66),
+          new THREE.Color(0xffee00),
+          new THREE.Color(0xff9000)
+        ];
+        for (let i = 0; i < count; i++) {
+          positions[i * 3] = 0;
+          positions[i * 3 + 1] = 0;
+          positions[i * 3 + 2] = 0;
+          const c = palette[i % palette.length];
+          colors[i * 3] = c.r;
+          colors[i * 3 + 1] = c.g;
+          colors[i * 3 + 2] = c.b;
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+        const mat = new THREE.PointsMaterial({
+          size: 0.12,
+          vertexColors: true,
+          transparent: true,
+          opacity: 0,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending
+        });
+        this.particles = new THREE.Points(geo, mat);
+        this.particles.visible = false;
+        this.scene.add(this.particles);
+        this._particleLife = 0;
+        this._particleVels = Array.from({ length: count }, () => new THREE.Vector3());
+      }
+
+      celebrate() {
+        const pos = this.particles.geometry.attributes.position;
+        for (let i = 0; i < this._particleVels.length; i++) {
+          const theta = Math.random() * Math.PI * 2;
+          const phi = Math.acos(2 * Math.random() - 1);
+          const speed = 1.5 + Math.random() * 3.5;
+          this._particleVels[i].set(
+            Math.sin(phi) * Math.cos(theta) * speed,
+            Math.abs(Math.cos(phi)) * speed + 1.2,
+            Math.sin(phi) * Math.sin(theta) * speed
+          );
+          pos.setXYZ(i, (Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.4);
+        }
+        pos.needsUpdate = true;
+        this.particles.material.opacity = 1;
+        this.particles.visible = true;
+        this._particleLife = 1.4;
+      }
+
+      _updateParticles(dt) {
+        if (!this.particles.visible) return;
+        this._particleLife -= dt;
+        const pos = this.particles.geometry.attributes.position;
+        for (let i = 0; i < this._particleVels.length; i++) {
+          const v = this._particleVels[i];
+          v.y -= 4.5 * dt;
+          pos.array[i * 3] += v.x * dt;
+          pos.array[i * 3 + 1] += v.y * dt;
+          pos.array[i * 3 + 2] += v.z * dt;
+        }
+        pos.needsUpdate = true;
+        this.particles.material.opacity = Math.max(0, this._particleLife / 1.4);
+        if (this._particleLife <= 0) {
+          this.particles.visible = false;
+        }
+      }
+
+      resize() {
+        this.width = this.container.clientWidth || window.innerWidth;
+        this.height = this.container.clientHeight || window.innerHeight;
+        this.camera.aspect = this.width / this.height;
+        this.camera.fov = this.width < 640 ? 48 : 42;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(this.width, this.height);
+        this.controls.handleResize();
+      }
+
+      start() {
+        if (this._running) return;
+        this._running = true;
+        const loop = () => {
+          this._raf = requestAnimationFrame(loop);
+          const dt = this._clock.getDelta();
+          const t = this._clock.elapsedTime;
+          this.engine.update(t);
+          this.controls.update();
+          this._updateParticles(dt);
+          if (this.ring) {
+            this.ring.rotation.z = t * 0.25;
+            this.ring.material.opacity = 0.16 + Math.sin(t * 2) * 0.08;
+          }
+          if (this.ringOuter) {
+            this.ringOuter.rotation.z = -t * 0.15;
+          }
+          if (this.halo) this.halo.rotation.z = t * 0.2;
+          if (this.halo2) this.halo2.rotation.z = -t * 0.12;
+          this.renderer.render(this.scene, this.camera);
+        };
+        loop();
+      }
+
+      stop() {
+        this._running = false;
+        cancelAnimationFrame(this._raf);
+      }
+
+      setCubeSize(size) {
+        this.engine.setSize(size);
+        this.applyTheme(size);
+        const mobile = this.width < 640;
+        const d = size === 2 ? (mobile ? 5.2 : 4.5) : (mobile ? 6.4 : 5.5);
+        this.camera.position.set(d * 0.76, d * 0.62, d * 0.95);
+        this.camera.fov = mobile ? 48 : 42;
+        this.camera.updateProjectionMatrix();
+        this.controls.target.set(0, 0, 0);
+        this.controls.enabled = true;
+        this.controls.update();
+      }
+    }
+
+    /* =========================================================
+       APRENDIZAJE
+       ========================================================= */
+    class LearningController {
+      constructor(engine) {
+        this.engine = engine;
+        this.key = null;
+        this.steps = [];
+        this.index = 0;
+      }
+
+      load(key) {
+        this.key = key;
+        const alg = ALGORITMOS[key];
+        if (!alg) {
+          this.steps = [];
+          this.index = 0;
+          return null;
+        }
+        this.steps = expandirMoves(alg.solve);
+        this.index = 0;
+        return alg;
+      }
+
+      applySetup() {
+        if (!this.key) return;
+        const alg = ALGORITMOS[this.key];
+        this.engine.resetSolved();
+        // Setup = inverso del algoritmo de resolución (instantáneo)
+        this.engine.applyInstant(invertirSecuencia(alg.solve));
+        this.index = 0;
+        this.engine.moveCount = 0;
+        this.engine._emitCount();
+      }
+
+      nextStep() {
+        if (this.index >= this.steps.length) return null;
+        const move = this.steps[this.index];
+        const def = MOVE_DEFS[move];
+        const info = def ? def.label : move;
+        this.engine.enqueue(move, { info });
+        this.index += 1;
+        return { move, info, index: this.index, total: this.steps.length };
+      }
+
+      getProgress() {
+        return { index: this.index, total: this.steps.length, done: this.index >= this.steps.length };
+      }
+    }
+
+    /* =========================================================
+       APLICACIÓN / UI STATE
+       ========================================================= */
+    const AppState = {
+      pantallas: {
+        login: document.getElementById('pantalla-login'),
+        dashboard: document.getElementById('pantalla-dashboard'),
+        simulador: document.getElementById('pantalla-simulador')
+      },
+      modo: 3,
+      scene: null,
+      learning: null,
+      panelAbierto: false,
+      audio: new NexusAudio(),
+      timer: null,
+      solvedLocked: false,
+      turbo: false,
+      eco: true
+    };
+
+    function actualizarHistorial(hist) {
+      const root = document.getElementById('historial-moves');
+      root.innerHTML = '';
+      const max = window.innerWidth < 640 ? 10 : 18;
+      const slice = hist.slice(-max);
+      for (const m of slice) {
+        const chip = document.createElement('span');
+        chip.className = 'historial-chip';
+        chip.textContent = m;
+        root.appendChild(chip);
+      }
+    }
+
+    function ocultarVictoria() {
+      document.getElementById('toast-victoria').classList.remove('visible');
+      AppState.solvedLocked = false;
+    }
+
+    function celebrarVictoria() {
+      if (AppState.solvedLocked) return;
+      AppState.solvedLocked = true;
+      const tiempo = AppState.timer?.stop() ?? 0;
+      const moves = AppState.scene.engine.moveCount;
+      document.getElementById('toast-stats').textContent =
+        `${tiempo.toFixed(2)}s · ${moves} movimientos`;
+      document.getElementById('toast-victoria').classList.add('visible');
+      AppState.scene.celebrate();
+      AppState.audio.playSolve();
+      setTimeout(ocultarVictoria, 4200);
+    }
+
+    function ejecutarMove(m) {
+      if (!AppState.scene) return;
+      ocultarIndicadorPaso();
+      ocultarVictoria();
+      AppState.timer?.startIfArmed();
+      AppState.scene.engine.enqueue(m);
+      AppState.audio.playMove(m);
+    }
+
+    function mostrarPantalla(nombre) {
+      for (const [key, el] of Object.entries(AppState.pantallas)) {
+        el.classList.toggle('active', key === nombre);
+      }
+      if (nombre === 'simulador') {
+        if (!AppState.scene) {
+          const container = document.getElementById('canvas-container');
+          AppState.scene = new SceneManager(container);
+          AppState.learning = new LearningController(AppState.scene.engine);
+          AppState.timer = new SolveTimer(document.getElementById('cronometro'));
+
+          AppState.scene.engine.onMoveCount = (n) => {
+            document.getElementById('contador-movimientos').textContent = String(n);
+          };
+          AppState.scene.engine.onHistoryChange = actualizarHistorial;
+          AppState.scene.engine.onStepInfo = (move, info) => {
+            const box = document.getElementById('indicador-paso');
+            document.getElementById('paso-notacion').textContent = move;
+            document.getElementById('paso-descripcion').textContent = info;
+            box.style.opacity = '1';
+          };
+          AppState.scene.engine.onScrambleDone = () => {
+            AppState.timer.arm();
+            ocultarVictoria();
+          };
+          AppState.scene.engine.onMoveComplete = (move, silent) => {
+            if (silent) return;
+            if (AppState.scene.engine.isSolved() && AppState.scene.engine.moveCount > 0) {
+              celebrarVictoria();
+            }
+          };
+
+          construirGamepad();
+          AppState.scene.onFaceMove = (m) => ejecutarMove(m);
+          AppState.scene.start();
+        }
+        AppState.scene.setCubeSize(AppState.modo);
+        AppState.scene.engine.ecoEnabled = AppState.eco;
+        AppState.scene.engine.animSpeed = AppState.turbo ? 2.2 : 1;
+        AppState.scene.resize();
+        AppState.timer?.reset();
+        document.getElementById('etiqueta-modo').textContent = AppState.modo === 2 ? '2×2' : '3×3';
+        document.getElementById('btn-aprender').classList.toggle('hidden', AppState.modo !== 3);
+        cerrarPanel();
+        resetLearningUI();
+        ocultarVictoria();
+        actualizarHistorial([]);
+      }
+    }
+
+    function construirGamepad() {
+      const root = document.getElementById('gamepad');
+      root.innerHTML = '';
+      for (const m of GAMEPAD_ORDEN) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'move-btn';
+        btn.textContent = m;
+        btn.dataset.move = m;
+        btn.title = MOVE_DEFS[m]?.label || m;
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          AppState.scene?.engine.hideLayerPreview();
+          ejecutarMove(m);
+        });
+        btn.addEventListener('pointerdown', (e) => {
+          e.stopPropagation();
+          btn.classList.add('preview');
+          AppState.scene?.engine.showLayerPreview(m);
+        });
+        btn.addEventListener('pointerup', () => {
+          btn.classList.remove('preview');
+          AppState.scene?.engine.hideLayerPreview();
+        });
+        btn.addEventListener('pointercancel', () => {
+          btn.classList.remove('preview');
+          AppState.scene?.engine.hideLayerPreview();
+        });
+        btn.addEventListener('pointerenter', () => {
+          btn.classList.add('preview');
+          AppState.scene?.engine.showLayerPreview(m);
+        });
+        btn.addEventListener('pointerleave', () => {
+          btn.classList.remove('preview');
+          AppState.scene?.engine.hideLayerPreview();
+        });
+        root.appendChild(btn);
+      }
+    }
+
+    function ocultarIndicadorPaso() {
+      document.getElementById('indicador-paso').style.opacity = '0';
+    }
+
+    function abrirPanel() {
+      document.getElementById('panel-aprendizaje').classList.add('abierto');
+      AppState.panelAbierto = true;
+    }
+
+    function cerrarPanel() {
+      document.getElementById('panel-aprendizaje').classList.remove('abierto');
+      AppState.panelAbierto = false;
+    }
+
+    function resetLearningUI() {
+      document.getElementById('select-algoritmo').value = '';
+      document.getElementById('secuencia-texto').textContent = 'Selecciona un algoritmo para ver la secuencia.';
+      document.getElementById('secuencia-progreso').textContent = 'Paso 0 / 0';
+      document.getElementById('btn-siguiente-paso').disabled = true;
+      AppState.learning?.load(null);
+      ocultarIndicadorPaso();
+    }
+
+    function actualizarProgresoAprendizaje() {
+      const p = AppState.learning.getProgress();
+      document.getElementById('secuencia-progreso').textContent = `Paso ${p.index} / ${p.total}`;
+      document.getElementById('btn-siguiente-paso').disabled = p.done || p.total === 0;
+    }
+
+    /* ========== Eventos UI ========== */
+    document.getElementById('form-login').addEventListener('submit', (e) => {
+      e.preventDefault();
+      mostrarPantalla('dashboard');
+    });
+
+    document.getElementById('btn-cerrar-sesion').addEventListener('click', () => {
+      mostrarPantalla('login');
+    });
+
+    document.getElementById('btn-modo-2x2').addEventListener('click', () => {
+      AppState.modo = 2;
+      mostrarPantalla('simulador');
+    });
+
+    document.getElementById('btn-modo-3x3').addEventListener('click', () => {
+      AppState.modo = 3;
+      mostrarPantalla('simulador');
+    });
+
+    document.getElementById('btn-volver').addEventListener('click', () => {
+      cerrarPanel();
+      mostrarPantalla('dashboard');
+    });
+
+    document.getElementById('btn-mezclar').addEventListener('click', () => {
+      ocultarIndicadorPaso();
+      ocultarVictoria();
+      AppState.scene?.engine.scramble(AppState.modo === 2 ? 12 : 25);
+    });
+
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      ocultarIndicadorPaso();
+      ocultarVictoria();
+      AppState.timer?.reset();
+      AppState.scene?.engine.resetSolved();
+      if (AppState.learning?.key) {
+        AppState.learning.index = 0;
+        actualizarProgresoAprendizaje();
+      }
+    });
+
+    document.getElementById('btn-deshacer').addEventListener('click', () => {
+      AppState.scene?.engine.undo();
+      ocultarVictoria();
+    });
+
+    document.getElementById('btn-turbo').addEventListener('click', () => {
+      AppState.turbo = !AppState.turbo;
+      document.getElementById('btn-turbo').classList.toggle('toggle-on', AppState.turbo);
+      if (AppState.scene) AppState.scene.engine.animSpeed = AppState.turbo ? 2.2 : 1;
+    });
+
+    document.getElementById('btn-eco').addEventListener('click', () => {
+      AppState.eco = !AppState.eco;
+      document.getElementById('btn-eco').classList.toggle('toggle-on', AppState.eco);
+      if (AppState.scene) AppState.scene.engine.ecoEnabled = AppState.eco;
+    });
+
+    document.getElementById('btn-sonido').addEventListener('click', () => {
+      const on = AppState.audio.toggle();
+      document.getElementById('btn-sonido').classList.toggle('toggle-on', on);
+      document.getElementById('btn-sonido').textContent = on ? '♪ ON' : '♪';
+    });
+
+    document.getElementById('btn-aprender').addEventListener('click', () => {
+      if (AppState.panelAbierto) cerrarPanel();
+      else abrirPanel();
+    });
+
+    document.getElementById('btn-cerrar-panel').addEventListener('click', cerrarPanel);
+
+    document.getElementById('select-algoritmo').addEventListener('change', (e) => {
+      const key = e.target.value;
+      const alg = AppState.learning.load(key || null);
+      if (!alg) {
+        resetLearningUI();
+        return;
+      }
+      document.getElementById('secuencia-texto').textContent =
+        `${alg.nombre}: ${alg.solve.join(' ')} — ${alg.descripcion}`;
+      actualizarProgresoAprendizaje();
+    });
+
+    document.getElementById('btn-cargar-setup').addEventListener('click', () => {
+      if (!AppState.learning?.key) return;
+      ocultarVictoria();
+      AppState.timer?.reset();
+      AppState.learning.applySetup();
+      actualizarProgresoAprendizaje();
+      const box = document.getElementById('indicador-paso');
+      document.getElementById('paso-notacion').textContent = 'SETUP';
+      document.getElementById('paso-descripcion').textContent =
+        'Cubo en estado previo. Pulsa «Siguiente Paso» para resolver.';
+      box.style.opacity = '1';
+    });
+
+    document.getElementById('btn-siguiente-paso').addEventListener('click', () => {
+      const step = AppState.learning.nextStep();
+      if (!step) return;
+      AppState.audio.playMove(step.move);
+      actualizarProgresoAprendizaje();
+      if (step.index >= step.total) {
+        setTimeout(() => {
+          document.getElementById('paso-notacion').textContent = '✓';
+          document.getElementById('paso-descripcion').textContent = 'Algoritmo completado';
+        }, 280);
+      }
+    });
+
+    /* Atajos de teclado: U D F B R L + Shift para prima, Z deshacer */
+    window.addEventListener('keydown', (e) => {
+      if (!AppState.pantallas.simulador.classList.contains('active')) return;
+      const tag = (e.target && e.target.tagName) || '';
+      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+
+      if (e.key === 'z' || e.key === 'Z') {
+        e.preventDefault();
+        AppState.scene?.engine.undo();
+        ocultarVictoria();
+        return;
+      }
+
+      const map = { u: 'U', d: 'D', f: 'F', b: 'B', r: 'R', l: 'L' };
+      const face = map[e.key.toLowerCase()];
+      if (!face) return;
+      e.preventDefault();
+      const move = e.shiftKey ? face + "'" : face;
+      ejecutarMove(move);
+    });
+
+    // Estado inicial
+    mostrarPantalla('login');
+  </script>
+</body>
+</html>
